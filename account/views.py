@@ -9,9 +9,14 @@ from django.utils.http import urlsafe_base64_encode,urlsafe_base64_decode
 
 from django.contrib.auth.models import User
 
+from payment.forms import ShippingForm
+from payment.models import ShippingAddress
+
 from django.contrib.auth.models import auth
 from django.contrib.auth import authenticate,login,logout
 from django.contrib.auth.decorators import login_required
+
+from payment.models import Order,OrderItem
 
 from django.contrib import messages
 
@@ -185,4 +190,44 @@ def user_logout(request):
     messages.success(request,"Logout success")
     
     return redirect('store')
+
+
+@login_required(login_url='my-login')    
+def manage_shipping(request):
+    try:
+        shipping = ShippingAddress.objects.get(user=request.user.id)
+        
+    except ShippingAddress.DoesNotExist:
+        shipping = None
+        
+    form = ShippingForm(instance=shipping)
     
+    if request.method == 'POST':
+        form = ShippingForm(request.POST,instance=shipping)
+        
+        if form.is_valid():
+            # Assign FK on to user 
+            shipping_user = form.save(commit=False)
+            
+            # Adding FK itself
+            
+            shipping_user.user = request.user
+            
+            shipping_user.save()
+            
+            return redirect('dashboard')            
+    
+    context = {'form':form}
+    
+    return render(request,"account/manage-shipping.html",context=context)
+
+@login_required(login_url='my-login')
+def my_orders(request):
+    try:
+        orders = OrderItem.objects.filter(user=request.user)
+        context = {'orders':orders}
+        return render(request, 'account/my-order.html', context=context)
+
+    except:
+        return render(request, 'account/my-order.html',context=context)
+    # return render(request,'account/my-order.html',{'order':order,'order_item':order_item})
